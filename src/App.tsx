@@ -20,6 +20,12 @@ function App() {
   const [email, setEmail] = React.useState('')
   const [username, setUsername] = React.useState('')
 
+  const showAlert = (type: AlertColor, msg: string) => {
+    setMsgType(type)
+    setMessage(msg)
+    setOpen(true)
+  }
+
   const onRegister = async() => {
     try {
       const req = await axios.post('/api/register/begin', { username, email })
@@ -29,14 +35,10 @@ function App() {
       console.log(response)
       const attResult = await axios.post('/api/register/finish', response)
       console.log(attResult)
-      setMsgType('success')
-      setMessage('Register success')
-      setOpen(true)
+      showAlert('success', 'Register success')
     } catch (e) {
       if (e instanceof AxiosError) {
-        setMsgType('error')
-        setMessage(e.response?.data || 'Register failed')
-        setOpen(true)
+        showAlert('error', e.response?.data || 'Register failed')
       }
     }
   }
@@ -50,14 +52,10 @@ function App() {
       console.log(response)
       const attResult = await axios.post('/api/login/finish', response)
       console.log(attResult)
-      setMsgType('success')
-      setMessage('Login success')
-      setOpen(true)
+        showAlert('success', 'Login success')
     } catch (e) {
       if (e instanceof AxiosError) {
-        setMsgType('error')
-        setMessage(e.response?.data || 'Login failed')
-        setOpen(true)
+        showAlert('error', e.response?.data || 'Login failed')
       }
     }
   }

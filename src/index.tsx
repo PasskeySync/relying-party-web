@@ -16,7 +16,7 @@ const router = createBrowserRouter([
     {
         path: "/",
         loader: async () => {
-            return redirect("/user");
+            return redirect("/user")
         }
     },
     {
@@ -24,10 +24,10 @@ const router = createBrowserRouter([
         Component: LoginPage,
         loader: async () => {
             try {
-                await getUserInfo();
+                await getUserInfo()
                 return redirect("/user");
             } catch (e) {
-                return null;
+                return null
             }
         }
     },
@@ -39,9 +39,9 @@ const router = createBrowserRouter([
                 return await getUserInfo();
             } catch (e) {
                 if (e instanceof AxiosError) {
-                    console.log(e.response?.data);
+                    console.log(e.response?.data)
                 }
-                throw redirect("/login");
+                throw redirect("/login")
             }
         }
     }

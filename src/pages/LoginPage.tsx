@@ -1,5 +1,17 @@
-import "./LoginPage.css";
-import {Alert, AlertColor, Box, Button, Card, Divider, Snackbar, Tab, TextField, Typography} from "@mui/material";
+import "./global.css";
+import {
+    Alert,
+    AlertColor,
+    Box,
+    Button,
+    Card,
+    Divider,
+    LinearProgress,
+    Snackbar,
+    Tab,
+    TextField,
+    Typography
+} from "@mui/material";
 import TabList from "@mui/lab/TabList";
 import TabPanel from "@mui/lab/TabPanel";
 import Stack from "@mui/material/Stack";
@@ -8,10 +20,13 @@ import React, {useState} from "react";
 import {blueGrey} from "@mui/material/colors";
 import axios, {AxiosError} from "axios";
 import {create, get} from "@github/webauthn-json";
+import {useNavigate, useNavigation} from "react-router-dom";
 
 function LoginPage() {
+    const navigate = useNavigate()
+    const navigation = useNavigation()
     const LoginPanel = () => {
-        const [open, setOpen] = useState(false);
+        const [open, setOpen] = useState(false)
         const [message, setMessage] = useState('')
         const [msgType, setMsgType] = useState<AlertColor>('success')
 
@@ -35,10 +50,12 @@ function LoginPage() {
                 const attResult = await axios.post('/api/login/finish', response)
                 console.log(attResult)
                 showAlert('success', 'Login success')
+                navigate('/user')
             } catch (e) {
                 if (e instanceof AxiosError) {
                     showAlert('error', e.response?.data || 'Login failed')
                 }
+                return null
             }
         }
 
@@ -46,6 +63,7 @@ function LoginPage() {
             try {
                 await axios.post('/api/login/plain', {email, password})
                 showAlert('success', 'Login success')
+                navigate('/user')
             } catch (e) {
                 if (e instanceof AxiosError) {
                     showAlert('error', e.response?.data || 'Login failed')
@@ -141,6 +159,7 @@ function LoginPage() {
                 const attResult = await axios.post('/api/register/finish', response)
                 console.log(attResult)
                 showAlert('success', 'Register success')
+                navigate('/user')
             } catch (e) {
                 if (e instanceof AxiosError) {
                     showAlert('error', e.response?.data || 'Register failed')
@@ -152,6 +171,7 @@ function LoginPage() {
             try {
                 await axios.post('/api/register/plain', {email, username, password})
                 showAlert('success', 'Register success')
+                navigate('/user')
             } catch (e) {
                 if (e instanceof AxiosError) {
                     showAlert('error', e.response?.data || 'Register failed')
@@ -246,7 +266,8 @@ function LoginPage() {
     };
     const [isLogin, setIsLogin] = useState(true);
     return (
-        <Box className="LoginPage">
+        <Box className="GradientBackground">
+            {navigation.state === "loading" && <LinearProgress sx={{width: "100%", position: "absolute"}}/>}
             <Card sx={{ margin: "auto 50px auto auto", minWidth: 400, minHeight: 400 }}>
                 <Box sx={{ p: 3 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">

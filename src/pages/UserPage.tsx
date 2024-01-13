@@ -15,6 +15,7 @@ import {
     LinearProgress,
     List,
     ListItemText,
+    Popover,
     Snackbar,
     Switch,
     TextField,
@@ -27,6 +28,8 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import React, {useEffect, useState} from "react";
 import axios, {AxiosError} from "axios";
 import {ModalProps} from "@mui/material/Modal";
+import PopupState, {anchorRef, bindPopover, bindTrigger} from "material-ui-popup-state";
+import {create} from "@github/webauthn-json";
 
 interface PasswordDialogProps {
     showAlert: (type: AlertColor, msg: string) => void
@@ -49,10 +52,6 @@ function EnablePasswordDialog(prop: PasswordDialogProps) {
                 password
             })
             prop.showAlert("success", "Successfully enabled password")
-            setPassword("")
-            setConfirmPassword("")
-            setIsPasswordValid(true)
-            setIsConfirmValid(true)
             prop.onConfirm()
         } catch (e) {
             if (e instanceof AxiosError) {
@@ -62,6 +61,15 @@ function EnablePasswordDialog(prop: PasswordDialogProps) {
             }
         }
     }
+
+    useEffect(() => {
+        if (!prop.open) {
+            setPassword("")
+            setConfirmPassword("")
+            setIsPasswordValid(true)
+            setIsConfirmValid(true)
+        }
+    }, [prop.open])
 
     return (
         <Dialog
@@ -89,7 +97,7 @@ function EnablePasswordDialog(prop: PasswordDialogProps) {
                         value={confirmPassword}
                         type="password"
                         error={!isConfirmValid}
-                        helperText={isConfirmValid ? '' : 'Password not match'}
+                        helperText={isConfirmValid ? "" : "Password not match"}
                         onChange={(e) => {
                             setConfirmPassword(e.target.value)
                             setIsConfirmValid(password === e.target.value)
@@ -100,7 +108,7 @@ function EnablePasswordDialog(prop: PasswordDialogProps) {
             <DialogActions>
                 <Button onClick={prop.onClose}>Cancel</Button>
                 <Button
-                    disabled={password.length == 0 || !isPasswordValid || !isConfirmValid}
+                    disabled={password.length === 0 || confirmPassword.length === 0 || !isPasswordValid || !isConfirmValid}
                     onClick={() => enablePassword(password)}
                 >Confirm</Button>
             </DialogActions>
@@ -110,6 +118,11 @@ function EnablePasswordDialog(prop: PasswordDialogProps) {
 
 function DisablePasswordDialog(prop: PasswordDialogProps) {
     const [password, setPassword] = React.useState("")
+    useEffect(() => {
+        if (!prop.open) {
+            setPassword("")
+        }
+    }, [prop.open])
     const disablePassword = async (password: string) => {
         try {
             await axios.post("/api/user/enable_password", {
@@ -117,7 +130,6 @@ function DisablePasswordDialog(prop: PasswordDialogProps) {
                 password
             })
             prop.showAlert("success", "Successfully disabled password")
-            setPassword("")
             prop.onConfirm()
         } catch (e) {
             if (e instanceof AxiosError) {
@@ -148,8 +160,95 @@ function DisablePasswordDialog(prop: PasswordDialogProps) {
             <DialogActions>
                 <Button onClick={prop.onClose}>Cancel</Button>
                 <Button
-                    disabled={password.length == 0}
+                    disabled={password.length === 0}
                     onClick={() => disablePassword(password)}
+                >Confirm</Button>
+            </DialogActions>
+        </Dialog>
+    )
+}
+
+function ResetPasswordDialog(prop: PasswordDialogProps) {
+    const [oldPassword, setOldPassword] = React.useState("")
+    const [newPassword, setNewPassword] = React.useState("")
+    const [confirmPassword, setConfirmPassword] = React.useState("")
+    const [isNewPasswordValid, setIsNewPasswordValid] = React.useState(true)
+    const [isConfirmValid, setIsConfirmValid] = React.useState(true)
+
+    const changePassword = async (oldPassword: string, newPassword: string) => {
+        try {
+            await axios.post("/api/user/reset_password", {
+                oldPassword,
+                newPassword
+            })
+            prop.showAlert("success", "Successfully reset password")
+            prop.onConfirm()
+        } catch (e) {
+            if (e instanceof AxiosError) {
+                prop.showAlert("error", e.response?.data || "Reset password failed")
+            } else {
+                console.log(e)
+            }
+        }
+    }
+
+    useEffect(() => {
+        if (!prop.open) {
+            setOldPassword("")
+            setNewPassword("")
+            setConfirmPassword("")
+            setIsNewPasswordValid(true)
+            setIsConfirmValid(true)
+        }
+    }, [prop.open])
+
+    return (
+        <Dialog
+            fullWidth
+            open={prop.open}
+            onClose={prop.onClose}
+        >
+            <DialogTitle>"Change Password"</DialogTitle>
+            <DialogContent>
+                <Stack spacing={2}>
+                    <DialogContentText>Enter your old and new password</DialogContentText>
+                    <TextField
+                        label="Old Password"
+                        value={oldPassword}
+                        onChange={(e) => {
+                            setOldPassword(e.target.value)
+                        }}
+                        type="password"
+                    />
+                    <TextField
+                        label="New Password"
+                        value={newPassword}
+                        type="password"
+                        error={!isNewPasswordValid}
+                        helperText={isNewPasswordValid ? "" : "Password must be at least 8 characters"}
+                        onChange={(e) => {
+                            setNewPassword(e.target.value)
+                            setIsNewPasswordValid(e.target.value.length >= 8)
+                        }}
+                    />
+                    <TextField
+                        label="Confirm Password"
+                        value={confirmPassword}
+                        type="password"
+                        error={!isConfirmValid}
+                        helperText={isConfirmValid ? "" : "Password not match"}
+                        onChange={(e) => {
+                            setConfirmPassword(e.target.value)
+                            setIsConfirmValid(newPassword === e.target.value)
+                        }}
+                    />
+                </Stack>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={prop.onClose}>Cancel</Button>
+                <Button
+                    disabled={newPassword.length === 0 || confirmPassword.length === 0 || !isNewPasswordValid || !isConfirmValid}
+                    onClick={() => changePassword(oldPassword, newPassword)}
                 >Confirm</Button>
             </DialogActions>
         </Dialog>
@@ -171,19 +270,68 @@ function UserPage() {
         setOpen(true)
     }
 
+
+    const updateCredentials = async () => {
+        const res = await axios.get("/api/user/credentials")
+        setCredentials(res.data)
+    }
+    const updateUsePassword = async () => {
+        const res = await axios.get("/api/user/enable_password")
+        setUsePassword(res.data)
+    }
+
     const [credentials, setCredentials] = React.useState<CredentialInfo[]>([])
     const [usePassword, setUsePassword] = React.useState(false)
     useEffect(() => {
         (async () => {
-            const res = await axios.get("/api/user/credentials")
-            setCredentials(res.data)
-            const usePassword = await axios.get("/api/user/enable_password")
-            setUsePassword(usePassword.data)
+            await updateCredentials()
+            await updateUsePassword()
         })()
     }, [])
 
+    const onNewCredential = async (usePlatform: boolean) => {
+        try {
+            const req = await axios.post('/api/register/create')
+            console.log(req)
+            const response = await create(req.data)
+
+            console.log(response)
+            const attResult = await axios.post('/api/register/finish', response)
+            console.log(attResult)
+            showAlert('success', 'Successfully create credentials')
+            await updateCredentials()
+        } catch (e) {
+            if (e instanceof AxiosError) {
+                showAlert('error', e.response?.data || 'Register failed')
+            } else {
+                console.log(e)
+            }
+        }
+    }
+
+    const onDeleteCredential = async (credentialId: string) => {
+        try {
+            await axios.delete("/api/user/credentials", {
+                params: {
+                    credentialId
+                }
+            })
+            showAlert("success", "Successfully delete credential")
+            await updateCredentials()
+        } catch (e) {
+            if (e instanceof AxiosError) {
+                showAlert('error', e.response?.data || 'Delete credential failed')
+            } else {
+                console.log(e)
+            }
+        }
+    }
+
+
     const [openEnablePasswordDialog, setOpenEnablePasswordDialog] = React.useState(false)
     const [openDisablePasswordDialog, setOpenDisablePasswordDialog] = React.useState(false)
+    const [openResetPasswordDialog, setOpenResetPasswordDialog] = React.useState(false)
+    const [openDeleteCredentialDialog, setOpenDeleteCredentialDialog] = React.useState(false)
     return (
         <>
             <Box className="GradientBackground" width="100%" height="105vh" position="fixed" zIndex={-1}/>
@@ -206,9 +354,7 @@ function UserPage() {
                                 await axios.post("/api/logout")
                                 navigate("/login")
                             }}
-                        >
-                            Logout
-                        </Button>
+                        >Logout</Button>
                         <Card sx={{p: 3, wordBreak: "break-all"}}>
                             <Typography variant="body1">
                                 Welcome,
@@ -237,6 +383,10 @@ function UserPage() {
                                             if (e.target.checked) {
                                                 setOpenEnablePasswordDialog(true)
                                             } else {
+                                                if (credentials.length === 0) {
+                                                    showAlert("error", "You must have at least one credential to disable password")
+                                                    return
+                                                }
                                                 setOpenDisablePasswordDialog(true)
                                             }
                                         }}
@@ -245,18 +395,18 @@ function UserPage() {
                                         showAlert={showAlert}
                                         open={openEnablePasswordDialog}
                                         onClose={() => setOpenEnablePasswordDialog(false)}
-                                        onConfirm={() => {
+                                        onConfirm={async () => {
                                             setOpenEnablePasswordDialog(false)
-                                            setUsePassword(true)
+                                            await updateUsePassword()
                                         }}
                                     />
                                     <DisablePasswordDialog
                                         showAlert={showAlert}
                                         open={openDisablePasswordDialog}
                                         onClose={() => setOpenDisablePasswordDialog(false)}
-                                        onConfirm={() => {
+                                        onConfirm={async () => {
                                             setOpenDisablePasswordDialog(false)
-                                            setUsePassword(false)
+                                            await updateUsePassword()
                                         }}
                                     />
                                 </Stack>
@@ -267,20 +417,126 @@ function UserPage() {
                                         "Password login is DISABLED for your account"
                                     }
                                 </Typography>
-                                {usePassword && <Button variant="outlined">Modify Password</Button>}
+                                {usePassword &&
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => setOpenResetPasswordDialog(true)}
+                                    >Modify Password</Button>
+                                }
+                                <ResetPasswordDialog
+                                    showAlert={showAlert}
+                                    open={openResetPasswordDialog}
+                                    onConfirm={() => setOpenResetPasswordDialog(false)}
+                                    onClose={() => setOpenResetPasswordDialog(false)}
+                                />
                             </Stack>
                         </Card>
                     </Stack>
                 </Grid>
                 <Grid xs={8}>
                     <Card sx={{width: "100%", p: 3}}>
-                        <Typography variant="h5">
-                            Total {credentials.length} Credential{credentials.length > 1 ? "s" : ""}
-                        </Typography>
+                        <Stack direction="row" justifyContent="space-between">
+                            <Typography variant="h5">
+                                Total {credentials.length} Credential{credentials.length > 1 ? "s" : ""}
+                            </Typography>
+                            <PopupState variant="popover">
+                                {(popupState) => (
+                                    <div>
+                                        <Button
+                                            variant="outlined"
+                                            {...bindTrigger(popupState)}
+                                        >New Credential</Button>
+                                        <Popover
+                                            {...bindPopover(popupState)}
+                                            anchorOrigin={{
+                                                vertical: 'bottom',
+                                                horizontal: 'center',
+                                            }}
+                                            transformOrigin={{
+                                                vertical: 'top',
+                                                horizontal: 'center',
+                                            }}
+                                        >
+                                            <Stack sx={{p: 2}} spacing={2}>
+                                                <Button variant="contained" onClick={async () => {
+                                                    await onNewCredential(false)
+                                                    popupState.close()
+                                                }}>Via PasskeySync</Button>
+                                                <Button variant="outlined" onClick={async () => {
+                                                    await onNewCredential(true)
+                                                    popupState.close()
+                                                }}>Via Platform</Button>
+                                            </Stack>
+                                        </Popover>
+                                    </div>
+                                )}
+                            </PopupState>
+                        </Stack>
+
                         <Stack spacing={3} sx={{marginTop: 3}}>
                             {credentials.map((credential) => (
                                 <React.Fragment key={credential.credentialId}>
                                     <Card sx={{p: 3, wordBreak: "break-all"}} variant="outlined">
+                                        <Stack direction="row-reverse" justifyContent="flex-start">
+                                            <PopupState variant="popover">
+                                                {(popupState) => (
+                                                    <div>
+                                                        <Button
+                                                            color="error"
+                                                            ref={anchorRef(popupState)}
+                                                            onClick={() => {
+                                                                if (credentials.length === 1 && !usePassword) {
+                                                                    showAlert("error", "You must have at least one credential when password login is disabled")
+                                                                    return
+                                                                }
+                                                                popupState.open()
+                                                            }}
+                                                        >Delete</Button>
+                                                        <Popover
+                                                            {...bindPopover(popupState)}
+                                                            anchorReference="anchorEl"
+                                                            anchorOrigin={{
+                                                                vertical: 'bottom',
+                                                                horizontal: 'center',
+                                                            }}
+                                                            transformOrigin={{
+                                                                vertical: 'top',
+                                                                horizontal: 'center',
+                                                            }}
+                                                        >
+                                                            <Stack sx={{p: 2, maxWidth: 300}} spacing={2}>
+                                                                <Typography>
+                                                                    Are you sure to delete this credential?
+                                                                    You will NOT be able to login with this credential
+                                                                    anymore.
+                                                                </Typography>
+                                                                <Button
+                                                                    variant="contained"
+                                                                    color="error"
+                                                                    onClick={() => onDeleteCredential(credential.credentialId)}
+                                                                >Confirm Delete</Button>
+                                                            </Stack>
+                                                        </Popover>
+                                                    </div>
+                                                )}
+                                            </PopupState>
+                                        </Stack>
+                                        <Dialog open={openDeleteCredentialDialog}>
+                                            <DialogTitle>Delete Credential</DialogTitle>
+                                            <DialogContent>
+                                                <DialogContentText>
+                                                    Are you sure to delete this credential?
+                                                </DialogContentText>
+                                            </DialogContent>
+                                            <DialogActions>
+                                                <Button
+                                                    onClick={() => setOpenDeleteCredentialDialog(false)}>Cancel</Button>
+                                                <Button onClick={async () => {
+                                                    await onDeleteCredential(credential.credentialId)
+                                                    setOpenDeleteCredentialDialog(false)
+                                                }}>Confirm</Button>
+                                            </DialogActions>
+                                        </Dialog>
                                         <List disablePadding>
                                             <ListItemText primary="Credential ID" secondary={credential.credentialId}/>
                                             <Divider/>

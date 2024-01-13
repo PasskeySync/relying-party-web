@@ -257,7 +257,7 @@ function RegisterPanel() {
                     <Button
                         variant="contained"
                         onClick={() => onPasswordRegister(email, username, password)}
-                        disabled={password.length == 0 || !isPasswordValid || !isConfirmValid}
+                        disabled={password.length === 0 || confirmPassword.length === 0 || !isPasswordValid || !isConfirmValid}
                     >
                         Register
                     </Button>

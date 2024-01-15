@@ -19,8 +19,10 @@ import TabContext from "@mui/lab/TabContext";
 import React, {useState} from "react";
 import {blueGrey} from "@mui/material/colors";
 import axios, {AxiosError} from "axios";
-import {create, get} from "@github/webauthn-json";
 import {useNavigate, useNavigation} from "react-router-dom";
+import {get} from "@github/webauthn-json";
+import {createRequestFromJSON, createResponseToJSON} from "@github/webauthn-json/extended";
+import {create as passkeyCreate} from "../webauthn/webauthn";
 
 function LoginPanel() {
     const navigate = useNavigate()
@@ -151,10 +153,16 @@ function RegisterPanel() {
 
     const onPasskeyRegister = async (email: string, username: string, usePlatform: boolean) => {
         try {
-            const req = await axios.post('/api/register/begin', {username, email})
+            const reqJson = await axios.post('/api/register/begin', {username, email})
+            console.log(reqJson)
+            const req = createRequestFromJSON(reqJson.data)
             console.log(req)
-            const response = await create(req.data)
+            const credential = usePlatform ?
+                await navigator.credentials.create(req) as PublicKeyCredential :
+                await passkeyCreate(req)
 
+            console.log(credential)
+            const response = createResponseToJSON(credential)
             console.log(response)
             const attResult = await axios.post('/api/register/finish', response)
             console.log(attResult)

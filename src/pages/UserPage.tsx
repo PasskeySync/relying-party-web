@@ -344,7 +344,7 @@ function UserPage() {
             >
                 <Alert severity={msgType}>{message}</Alert>
             </Snackbar>
-            <Grid sx={{p: 5, width: "100% "}} container spacing={3}>
+            <Grid sx={{p: 5, width: "100%"}} container spacing={3}>
                 <Grid xs={4}>
                     <Stack spacing={3}>
                         <Button

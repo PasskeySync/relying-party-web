@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import reportWebVitals from "./reportWebVitals";
 // @ts-ignore
-import {createBrowserRouter, redirect, RouterProvider, useNavigation} from "react-router-dom";
+import {createBrowserRouter, redirect, RouterProvider} from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import UserPage from "./pages/UserPage";
 import {getUserInfo} from "./api/api_user";

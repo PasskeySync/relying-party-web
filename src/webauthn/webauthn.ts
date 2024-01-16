@@ -211,7 +211,6 @@ async function discoverFromExternalSource(
                 0x02: clientDataHash,
                 0x03: pk.allowCredentials,
             }
-            console.log(json)
             const cbor = encode(json)
             const data = new Uint8Array(cbor.length + 1)
             data[0] = AuthenticatorRequestCode.AUTHENTICATOR_GET_ASSERTION

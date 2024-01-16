@@ -108,6 +108,7 @@ export class AuthenticatorResponseCode {
     static readonly CTAP2_ERR_UNSUPPORTED_ALGORITHM = 0x26;
     static readonly CTAP2_ERR_CREDENTIAL_EXCLUDED = 0x19;
     static readonly CTAP2_ERR_NO_CREDENTIALS = 0x2E;
+    static readonly CTAP2_ERR_INVALID_CREDENTIAL = 0x22;
 }
 
 export function getResponseErrorMessage(code: number): string {
@@ -122,6 +123,8 @@ export function getResponseErrorMessage(code: number): string {
         msg = "already registered this account"
     } else if (code === AuthenticatorResponseCode.CTAP2_ERR_NO_CREDENTIALS) {
         msg = "cannot find registered account"
+    } else if (code === AuthenticatorResponseCode.CTAP2_ERR_INVALID_CREDENTIAL) {
+        msg = "invalid credential for the authenticator"
     }
     return msg
 }

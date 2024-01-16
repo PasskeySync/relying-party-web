@@ -64,8 +64,11 @@ function LoginPanel() {
         } catch (e) {
             if (e instanceof AxiosError) {
                 showAlert('error', e.response?.data || 'Login failed')
+            } else if (e instanceof WebAuthnError) {
+                showAlert("error", e.message)
+            } else {
+                console.log(e)
             }
-            return null
         }
     }
 
@@ -77,6 +80,8 @@ function LoginPanel() {
         } catch (e) {
             if (e instanceof AxiosError) {
                 showAlert('error', e.response?.data || 'Login failed')
+            } else {
+                console.log(e)
             }
         }
     }
@@ -183,6 +188,8 @@ function RegisterPanel() {
                 showAlert('error', e.response?.data || 'Register failed')
             } else if (e instanceof WebAuthnError) {
                 showAlert('error', e.message)
+            } else {
+                console.log(e)
             }
         }
     }
@@ -195,6 +202,8 @@ function RegisterPanel() {
         } catch (e) {
             if (e instanceof AxiosError) {
                 showAlert('error', e.response?.data || 'Register failed')
+            } else {
+                console.log(e)
             }
         }
     }

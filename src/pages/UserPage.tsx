@@ -312,6 +312,8 @@ function UserPage() {
                 showAlert('error', e.response?.data || 'Register failed')
             } else if (e instanceof WebAuthnError) {
                 showAlert('error', e.message)
+            } else {
+                console.log(e)
             }
         }
     }

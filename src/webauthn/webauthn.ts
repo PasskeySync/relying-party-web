@@ -1,6 +1,16 @@
-import {AuthenticationExtensionsClientOutputs} from "@simplewebauthn/typescript-types";
-import {AuthenticatorRequestCode, CollectedClientData} from "./interfaces";
-import {decode, encode} from "cborg";
+import {COSEAlgorithmIdentifier} from "@simplewebauthn/typescript-types";
+import {
+    AuthenticatorRequestCode,
+    AuthenticatorResponseCode,
+    CollectedClientData,
+    decodeAttestationObject,
+    deserializeAuthenticatorData,
+    getResponseErrorMessage,
+    toCompatibleJSON,
+    WebAuthnError
+} from "./interfaces";
+import {encode} from "cborg";
+import {bufferToBase64url} from "@github/webauthn-json/extended";
 
 const TIMEOUT_DISCOURAGED_MIN = 30000;
 const TIMEOUT_DISCOURAGED_MAX = 180000;
@@ -76,49 +86,84 @@ async function internalCreate(
         origin: origin,
         crossOrigin: false,
     }
-    const clientDataJSON = JSON.stringify(collectedClientData)
-    const clientDataHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clientDataJSON));
+    const clientDataJSON = toCompatibleJSON(collectedClientData)
+    const clientDataJSONEncoded = new TextEncoder().encode(clientDataJSON)
+    const clientDataHash = await crypto.subtle.digest("SHA-256", clientDataJSONEncoded);
     if (options.signal !== undefined && options.signal.aborted) {
         throw new DOMException("aborted", "AbortError");
     }
     // connect to PasskeySync
-    const ws = new WebSocket(`ws://localhost:${PASSSYNC_PORT}/local`)
-
-    ws.onopen = (ev) => {
-        const json = {
-            0x01: clientDataHash,
-            0x02: pk.rp,
-            0x03: pk.user,
-            0x04: credTypesAndPubKeyAlgs,
-            0x05: pk.excludeCredentials,
+    const promise = new Promise<PublicKeyCredential>((resolve, reject) => {
+        const ws = new WebSocket(`ws://localhost:${PASSSYNC_PORT}/local`)
+        ws.onopen = (ev) => {
+            const json = {
+                0x01: clientDataHash,
+                0x02: pk.rp,
+                0x03: pk.user,
+                0x04: credTypesAndPubKeyAlgs,
+                0x05: pk.excludeCredentials,
+            }
+            const cbor = encode(json)
+            const data = new Uint8Array(cbor.length + 1)
+            data[0] = AuthenticatorRequestCode.AUTHENTICATOR_MAKE_CREDENTIAL
+            data.set(cbor, 1)
+            ws.send(data)
         }
-        const cbor = encode(json)
-        const data = new Uint8Array(cbor.length + 1)
-        data[0] = AuthenticatorRequestCode.AUTHENTICATOR_MAKE_CREDENTIAL
-        data.set(cbor, 1)
-        ws.send(data)
-    }
-    ws.onmessage = async (ev) => {
-        if (ev.data instanceof Blob) {
+        ws.onerror = () => {
+            reject(new WebAuthnError("websocket error"))
+        }
+        ws.onmessage = async (ev) => {
+            if (!(ev.data instanceof Blob)) {
+                reject(new WebAuthnError("invalid response"))
+                return
+            }
             const data = new Uint8Array(await ev.data.arrayBuffer())
-            console.log(data[0])
-            const cbor = data.slice(1)
-            const json = decode(cbor)
-            console.log(json)
+            if (data[0] !== AuthenticatorResponseCode.CTAP2_OK) {
+                ws.close()
+                reject(new WebAuthnError(getResponseErrorMessage(data[0])))
+            }
+            const attestationObject = decodeAttestationObject(data.slice(1))
+            const authData = deserializeAuthenticatorData(new Uint8Array(attestationObject.authData))
+            const id = authData.attestedCredentialData!.credentialId
+
+            let clientExtensionResults = {}
+            if (pk.extensions !== undefined) {
+                if (pk.extensions.credProps !== undefined) {
+                    clientExtensionResults = {
+                        ...clientExtensionResults,
+                        credProps: {
+                            rk: true,
+                        }
+                    }
+                }
+            }
+            resolve({
+                id: bufferToBase64url(id),
+                type: "public-key",
+                rawId: id,
+                response: {
+                    clientDataJSON: clientDataJSONEncoded,
+                    attestationObject: encode(attestationObject),
+                    getTransports(): string[] {
+                        return []
+                    },
+                    getAuthenticatorData(): ArrayBuffer {
+                        return attestationObject.authData
+                    },
+                    getPublicKey() {
+                        return authData.attestedCredentialData?.credentialPublicKey
+                    },
+                    getPublicKeyAlgorithm(): COSEAlgorithmIdentifier {
+                        return -7
+                    },
+                } as AuthenticatorAttestationResponse,
+                authenticatorAttachment: null,
+                getClientExtensionResults() {
+                    return clientExtensionResults
+                }
+            })
         }
-    }
+    })
 
-
-    return {
-        getClientExtensionResults(): AuthenticationExtensionsClientOutputs {
-            return {};
-        },
-        id: "id",
-        type: "type",
-        rawId: new ArrayBuffer(1),
-        response: {
-            clientDataJSON: new ArrayBuffer(1),
-        },
-        authenticatorAttachment: null
-    };
+    return await promise
 }

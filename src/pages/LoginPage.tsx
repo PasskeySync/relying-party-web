@@ -23,6 +23,7 @@ import {useNavigate, useNavigation} from "react-router-dom";
 import {get} from "@github/webauthn-json";
 import {createRequestFromJSON, createResponseToJSON} from "@github/webauthn-json/extended";
 import {create as passkeyCreate} from "../webauthn/webauthn";
+import {WebAuthnError} from "../webauthn/interfaces";
 
 function LoginPanel() {
     const navigate = useNavigate()
@@ -171,6 +172,9 @@ function RegisterPanel() {
         } catch (e) {
             if (e instanceof AxiosError) {
                 showAlert('error', e.response?.data || 'Register failed')
+            }
+            if (e instanceof WebAuthnError) {
+                showAlert('error', e.message)
             }
         }
     }

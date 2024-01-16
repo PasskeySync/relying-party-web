@@ -1,3 +1,6 @@
+import {decode} from "cborg";
+import {bufferToBase64url} from "@github/webauthn-json/extended";
+
 export interface CollectedClientData {
     type: string;
     challenge: BufferSource;
@@ -6,8 +9,102 @@ export interface CollectedClientData {
     tokenBinding?: any;
 }
 
+export function toCompatibleJSON(data: any): string {
+    return JSON.stringify(data, (key, value) => {
+        if (value instanceof ArrayBuffer || value instanceof Uint8Array) {
+            return bufferToBase64url(value as ArrayBuffer)
+        }
+        return value
+    })
+}
+
+export interface AttestationObject {
+    fmt: string;
+    authData: ArrayBuffer;
+    attStmt: AttestationStatement;
+}
+
+export function decodeAttestationObject(data: Uint8Array): AttestationObject {
+    const json = decode(data)
+    return {
+        fmt: json[0x01],
+        authData: json[0x02],
+        attStmt: json[0x03],
+    }
+}
+
+export interface AuthenticatorData {
+    rpIdHash: ArrayBuffer;
+    flags: number;
+    signCount: number;
+    attestedCredentialData?: AttestedCredentialData;
+    extensions?: any;
+}
+
+export function deserializeAuthenticatorData(data: Uint8Array): AuthenticatorData {
+    const rpIdHash = data.slice(0, 32)
+    const flags = data[32]
+    const signCount = (data[33] << 24) | (data[34] << 16) | (data[35] << 8) | data[36]
+    const attestedCredentialData = deserializeAttestedCredentialData(data.slice(37))
+    return {
+        rpIdHash,
+        flags,
+        signCount,
+        attestedCredentialData
+    }
+}
+
+export interface AttestedCredentialData {
+    aaguid: ArrayBuffer;
+    credentialId: ArrayBuffer;
+    credentialPublicKey: ArrayBuffer;
+}
+
+export function deserializeAttestedCredentialData(data: Uint8Array): AttestedCredentialData {
+    const aaguid = data.slice(0, 16)
+    const credentialIdLength = (data[16] << 8) | data[17]
+    const credentialId = data.slice(18, 18 + credentialIdLength)
+    const credentialPublicKey = data.slice(18 + credentialIdLength)
+    return {
+        aaguid,
+        credentialId,
+        credentialPublicKey
+    }
+}
+
+export interface AttestationStatement {
+    alg: number;
+    sig: ArrayBuffer;
+}
+
+
 export class AuthenticatorRequestCode {
     static readonly AUTHENTICATOR_MAKE_CREDENTIAL = 0x01;
     static readonly AUTHENTICATOR_GET_ASSERTION = 0x02;
     static readonly AUTHENTICATOR_GET_INFO = 0x04;
+}
+
+export class AuthenticatorResponseCode {
+    static readonly CTAP2_OK = 0x00;
+    static readonly CTAP1_ERR_INVALID_COMMAND = 0x01;
+    static readonly CTAP1_ERR_INVALID_PARAMETER = 0x02;
+    static readonly CTAP2_ERR_UNSUPPORTED_ALGORITHM = 0x26;
+}
+
+export function getResponseErrorMessage(code: number): string {
+    let msg = `error from authenticator ${code}`
+    if (code === AuthenticatorResponseCode.CTAP1_ERR_INVALID_COMMAND) {
+        msg = "invalid command"
+    } else if (code === AuthenticatorResponseCode.CTAP1_ERR_INVALID_PARAMETER) {
+        msg = "invalid parameter"
+    } else if (code === AuthenticatorResponseCode.CTAP2_ERR_UNSUPPORTED_ALGORITHM) {
+        msg = "unsupported algorithm"
+    }
+    return msg
+}
+
+export class WebAuthnError extends Error {
+    constructor(message: string) {
+        super(message)
+    }
 }

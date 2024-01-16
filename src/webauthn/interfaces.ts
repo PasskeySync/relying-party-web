@@ -33,6 +33,23 @@ export function decodeAttestationObject(data: Uint8Array): AttestationObject {
     }
 }
 
+export interface GetAssertionResponse {
+    credential: PublicKeyCredentialDescriptor;
+    authData: ArrayBuffer;
+    signature: ArrayBuffer;
+    user: PublicKeyCredentialUserEntity
+}
+
+export function decodeGetAssertionResponse(data: Uint8Array): GetAssertionResponse {
+    const json = decode(data)
+    return {
+        credential: json[0x01],
+        authData: json[0x02],
+        signature: json[0x03],
+        user: json[0x04],
+    }
+}
+
 export interface AuthenticatorData {
     rpIdHash: ArrayBuffer;
     flags: number;
@@ -89,6 +106,8 @@ export class AuthenticatorResponseCode {
     static readonly CTAP1_ERR_INVALID_COMMAND = 0x01;
     static readonly CTAP1_ERR_INVALID_PARAMETER = 0x02;
     static readonly CTAP2_ERR_UNSUPPORTED_ALGORITHM = 0x26;
+    static readonly CTAP2_ERR_CREDENTIAL_EXCLUDED = 0x19;
+    static readonly CTAP2_ERR_NO_CREDENTIALS = 0x2E;
 }
 
 export function getResponseErrorMessage(code: number): string {
@@ -99,6 +118,10 @@ export function getResponseErrorMessage(code: number): string {
         msg = "invalid parameter"
     } else if (code === AuthenticatorResponseCode.CTAP2_ERR_UNSUPPORTED_ALGORITHM) {
         msg = "unsupported algorithm"
+    } else if (code === AuthenticatorResponseCode.CTAP2_ERR_CREDENTIAL_EXCLUDED) {
+        msg = "already registered this account"
+    } else if (code === AuthenticatorResponseCode.CTAP2_ERR_NO_CREDENTIALS) {
+        msg = "cannot find registered account"
     }
     return msg
 }

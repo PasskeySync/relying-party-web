@@ -29,7 +29,9 @@ import React, {useEffect, useState} from "react";
 import axios, {AxiosError} from "axios";
 import {ModalProps} from "@mui/material/Modal";
 import PopupState, {anchorRef, bindPopover, bindTrigger} from "material-ui-popup-state";
-import {create} from "@github/webauthn-json";
+import {createRequestFromJSON, createResponseToJSON} from "@github/webauthn-json/extended";
+import {create as passkeyCreate} from "../webauthn/webauthn";
+import {WebAuthnError} from "../webauthn/interfaces";
 
 interface PasswordDialogProps {
     showAlert: (type: AlertColor, msg: string) => void
@@ -291,10 +293,15 @@ function UserPage() {
 
     const onNewCredential = async (usePlatform: boolean) => {
         try {
-            const req = await axios.post('/api/register/create')
+            const reqJson = await axios.post('/api/register/create')
+            console.log(reqJson)
+            const req = createRequestFromJSON(reqJson.data)
             console.log(req)
-            const response = await create(req.data)
-
+            const credential = usePlatform ?
+                await navigator.credentials.create(req) as PublicKeyCredential :
+                await passkeyCreate(req)
+            console.log(credential)
+            const response = createResponseToJSON(credential)
             console.log(response)
             const attResult = await axios.post('/api/register/finish', response)
             console.log(attResult)
@@ -303,8 +310,8 @@ function UserPage() {
         } catch (e) {
             if (e instanceof AxiosError) {
                 showAlert('error', e.response?.data || 'Register failed')
-            } else {
-                console.log(e)
+            } else if (e instanceof WebAuthnError) {
+                showAlert('error', e.message)
             }
         }
     }

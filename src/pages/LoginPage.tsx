@@ -20,9 +20,13 @@ import React, {useState} from "react";
 import {blueGrey} from "@mui/material/colors";
 import axios, {AxiosError} from "axios";
 import {useNavigate, useNavigation} from "react-router-dom";
-import {get} from "@github/webauthn-json";
-import {createRequestFromJSON, createResponseToJSON} from "@github/webauthn-json/extended";
-import {create as passkeyCreate} from "../webauthn/webauthn";
+import {
+    createRequestFromJSON,
+    createResponseToJSON,
+    getRequestFromJSON,
+    getResponseToJSON
+} from "@github/webauthn-json/extended";
+import {create as passkeyCreate, get as passkeyGet} from "../webauthn/webauthn";
 import {WebAuthnError} from "../webauthn/interfaces";
 
 function LoginPanel() {
@@ -43,10 +47,15 @@ function LoginPanel() {
 
     const onPasskeyLogin = async (email: string, usePlatform: boolean) => {
         try {
-            const req = await axios.post('/api/login/begin', {email})
+            const reqJson = await axios.post('/api/login/begin', {email})
+            console.log(reqJson)
+            const req = getRequestFromJSON(reqJson.data)
             console.log(req)
-            const response = await get(req.data)
-
+            const credential = usePlatform ?
+                await navigator.credentials.get(req) as PublicKeyCredential :
+                await passkeyGet(req)
+            console.log(credential)
+            const response = getResponseToJSON(credential)
             console.log(response)
             const attResult = await axios.post('/api/login/finish', response)
             console.log(attResult)
@@ -172,8 +181,7 @@ function RegisterPanel() {
         } catch (e) {
             if (e instanceof AxiosError) {
                 showAlert('error', e.response?.data || 'Register failed')
-            }
-            if (e instanceof WebAuthnError) {
+            } else if (e instanceof WebAuthnError) {
                 showAlert('error', e.message)
             }
         }

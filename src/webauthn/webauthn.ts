@@ -4,6 +4,7 @@ import {
     AuthenticatorResponseCode,
     CollectedClientData,
     decodeAttestationObject,
+    decodeGetAssertionResponse,
     deserializeAuthenticatorData,
     getResponseErrorMessage,
     toCompatibleJSON,
@@ -40,7 +41,7 @@ async function internalCreate(
     if (!sameOriginWithAncestors) {
         throw new DOMException("not same origin", "NotAllowedError");
     }
-    let pk = options.publicKey;
+    const pk = options.publicKey;
 
     if (pk.authenticatorSelection?.userVerification === "discouraged") {
         if (pk.timeout === undefined) pk.timeout = TIMEOUT_DISCOURAGED_RECOMMEND
@@ -88,14 +89,14 @@ async function internalCreate(
     }
     const clientDataJSON = toCompatibleJSON(collectedClientData)
     const clientDataJSONEncoded = new TextEncoder().encode(clientDataJSON)
-    const clientDataHash = await crypto.subtle.digest("SHA-256", clientDataJSONEncoded);
+    const clientDataHash = await crypto.subtle.digest("SHA-256", clientDataJSONEncoded)
     if (options.signal !== undefined && options.signal.aborted) {
         throw new DOMException("aborted", "AbortError");
     }
     // connect to PasskeySync
     const promise = new Promise<PublicKeyCredential>((resolve, reject) => {
         const ws = new WebSocket(`ws://localhost:${PASSSYNC_PORT}/local`)
-        ws.onopen = (ev) => {
+        ws.onopen = () => {
             const json = {
                 0x01: clientDataHash,
                 0x02: pk.rp,
@@ -114,13 +115,14 @@ async function internalCreate(
         }
         ws.onmessage = async (ev) => {
             if (!(ev.data instanceof Blob)) {
-                reject(new WebAuthnError("invalid response"))
+                reject(new WebAuthnError("invalid response for make credential"))
                 return
             }
             const data = new Uint8Array(await ev.data.arrayBuffer())
             if (data[0] !== AuthenticatorResponseCode.CTAP2_OK) {
                 ws.close()
                 reject(new WebAuthnError(getResponseErrorMessage(data[0])))
+                return
             }
             const attestationObject = decodeAttestationObject(data.slice(1))
             const authData = deserializeAuthenticatorData(new Uint8Array(attestationObject.authData))
@@ -154,7 +156,7 @@ async function internalCreate(
                         return authData.attestedCredentialData?.credentialPublicKey
                     },
                     getPublicKeyAlgorithm(): COSEAlgorithmIdentifier {
-                        return -7
+                        return attestationObject.attStmt.alg
                     },
                 } as AuthenticatorAttestationResponse,
                 authenticatorAttachment: null,
@@ -165,5 +167,90 @@ async function internalCreate(
         }
     })
 
+    return await promise
+}
+
+
+export async function get(options: CredentialRequestOptions): Promise<PublicKeyCredential> {
+    return discoverFromExternalSource(window.location.origin, options, true);
+}
+
+async function discoverFromExternalSource(
+    origin: string,
+    options: CredentialRequestOptions,
+    sameOriginWithAncestors: boolean
+): Promise<PublicKeyCredential> {
+    if (options.publicKey === undefined) {
+        throw new Error("publicKey is undefined");
+    }
+    if (!sameOriginWithAncestors) {
+        throw new DOMException("not same origin", "NotAllowedError");
+    }
+    const pk = options.publicKey;
+    const collectedClientData: CollectedClientData = {
+        type: "webauthn.get",
+        challenge: pk.challenge,
+        origin: origin,
+        crossOrigin: false,
+    }
+    const clientDataJSON = toCompatibleJSON(collectedClientData)
+    const clientDataJSONEncoded = new TextEncoder().encode(clientDataJSON)
+    const clientDataHash = await crypto.subtle.digest("SHA-256", clientDataJSONEncoded)
+    if (options.signal !== undefined && options.signal.aborted) {
+        throw new DOMException("aborted", "AbortError");
+    }
+    // connect to PasskeySync
+    const promise = new Promise<PublicKeyCredential>((resolve, reject) => {
+        const ws = new WebSocket(`ws://localhost:${PASSSYNC_PORT}/local`)
+        ws.onopen = () => {
+            let json = pk.allowCredentials === undefined ? {
+                0x01: pk.rpId,
+                0x02: clientDataHash,
+            } : {
+                0x01: pk.rpId,
+                0x02: clientDataHash,
+                0x03: pk.allowCredentials,
+            }
+            console.log(json)
+            const cbor = encode(json)
+            const data = new Uint8Array(cbor.length + 1)
+            data[0] = AuthenticatorRequestCode.AUTHENTICATOR_GET_ASSERTION
+            data.set(cbor, 1)
+            ws.send(data)
+        }
+        ws.onerror = () => {
+            reject(new WebAuthnError("websocket error"))
+        }
+        ws.onmessage = async (ev) => {
+            if (!(ev.data instanceof Blob)) {
+                reject(new WebAuthnError("invalid response for authenticatorGetAssertion"))
+                return
+            }
+            const data = new Uint8Array(await ev.data.arrayBuffer())
+            if (data[0] !== AuthenticatorResponseCode.CTAP2_OK) {
+                ws.close()
+                reject(new WebAuthnError(getResponseErrorMessage(data[0])))
+                return
+            }
+            const response = decodeGetAssertionResponse(data.slice(1))
+            const id = response.credential.id as ArrayBuffer
+
+            resolve({
+                id: bufferToBase64url(id),
+                type: "public-key",
+                rawId: id,
+                response: {
+                    clientDataJSON: clientDataJSONEncoded,
+                    authenticatorData: response.authData,
+                    signature: response.signature,
+                    userHandle: response.user.id,
+                } as AuthenticatorAssertionResponse,
+                authenticatorAttachment: null,
+                getClientExtensionResults() {
+                    return {}
+                }
+            })
+        }
+    })
     return await promise
 }

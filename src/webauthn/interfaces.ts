@@ -104,7 +104,4 @@ export function getResponseErrorMessage(code: number): string {
 }
 
 export class WebAuthnError extends Error {
-    constructor(message: string) {
-        super(message)
-    }
 }

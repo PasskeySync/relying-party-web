@@ -109,6 +109,8 @@ export class AuthenticatorResponseCode {
     static readonly CTAP2_ERR_CREDENTIAL_EXCLUDED = 0x19;
     static readonly CTAP2_ERR_NO_CREDENTIALS = 0x2E;
     static readonly CTAP2_ERR_INVALID_CREDENTIAL = 0x22;
+    static readonly CTAP2_ERR_USER_ACTION_PENDING = 0x23;
+    static readonly CTAP2_ERR_OPERATION_DENIED = 0x27;
 }
 
 export function getResponseErrorMessage(code: number): string {
@@ -125,6 +127,10 @@ export function getResponseErrorMessage(code: number): string {
         msg = "cannot find registered account"
     } else if (code === AuthenticatorResponseCode.CTAP2_ERR_INVALID_CREDENTIAL) {
         msg = "invalid credential for the authenticator"
+    } else if (code === AuthenticatorResponseCode.CTAP2_ERR_USER_ACTION_PENDING) {
+        msg = "PasskeySync is occupied by another request"
+    } else if (code === AuthenticatorResponseCode.CTAP2_ERR_OPERATION_DENIED) {
+        msg = "operation denied"
     }
     return msg
 }

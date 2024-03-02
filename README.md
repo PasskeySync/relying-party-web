@@ -1,46 +1,29 @@
-# Getting Started with Create React App
+# Passkey Demo - Client
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is a simple client that bridges the [Webauthn](https://fidoalliance.org/fido2-2/fido2-web-authentication-webauthn/)
+and
+the [CTAP](https://fidoalliance.org/specs/fido-v2.2-rd-20230321/fido-client-to-authenticator-protocol-v2.2-rd-20230321.html)
+protocals. The UI is built using [React](https://reactjs.org/). For simulation propose, the client not only calls
+the `navigator.credentials.get()` and `navigator.credentials.create()` functions that use platform authenticators, but
+also implements the CTAP2.1 protocal to communicate with the [PasskeySync](https://github.com/PasskeySync/passkey-sync)
+Authenticator.
 
-## Available Scripts
+Password login is also available.
 
-In the project directory, you can run:
+Aftering loging in, user can see all the credentials that binds to the account as well as turn on / off password login.
 
-### `npm start`
+## Screen Shots
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+![img.png](img/img.png)
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+![img_1.png](img/img_1.png)
 
-### `npm test`
+## How to run
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. Clone the repo
+2. Run `npm install`
+3. Run `react-scripts start`
 
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+Please also run the [replying party server](https://github.com/PasskeySync/relying-party-server) to ensure all the API
+works.
+The PasskeySync part also requires PasskeySync running on local machine.
